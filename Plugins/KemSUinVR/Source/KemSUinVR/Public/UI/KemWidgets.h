@@ -44,6 +44,7 @@ class KEMSUINVR_API UKemPanelWidgetBase : public UUserWidget
     GENERATED_BODY()
 
 protected:
+    virtual TSharedRef<SWidget> RebuildWidget() override;
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
     virtual void BuildUI();

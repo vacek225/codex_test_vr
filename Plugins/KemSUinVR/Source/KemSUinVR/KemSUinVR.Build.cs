@@ -24,7 +24,8 @@ public class KemSUinVR : ModuleRules
                 "AudioMixer",
                 "GameplayTags",
                 "DeveloperSettings",
-                "WebBrowserWidget"
+                "WebBrowserWidget",
+                "HeadMountedDisplay"
             });
 
         PrivateDependencyModuleNames.AddRange(

@@ -7,6 +7,9 @@
 
 class UKemParticipantModeratorWidget;
 class UWidgetComponent;
+class AKemPlayerControlProxy;
+class APlayerController;
+class APawn;
 
 UCLASS(Abstract)
 class KEMSUINVR_API AKemWidgetPanelActorBase : public AActor
@@ -38,6 +41,7 @@ class KEMSUINVR_API AKemHubActor : public AKemWidgetPanelActorBase
 
 public:
     AKemHubActor();
+    virtual void Tick(float DeltaSeconds) override;
 };
 
 UCLASS()
@@ -132,27 +136,41 @@ class KEMSUINVR_API AKemClassroomBootstrapActor : public AActor
 
 public:
     AKemClassroomBootstrapActor();
+    virtual void Tick(float DeltaSeconds) override;
 
 protected:
     virtual void BeginPlay() override;
 
 private:
+    void EnsureLocalLayoutInitialized();
+    void EnsurePlayerControlProxies();
+    void EnsureLocalPlayerControlMode();
+    bool ShouldUseDesktopFallback() const;
+    FTransform BuildLayoutTransform(const FVector& LayoutOrigin, const FRotator& LayoutRotation, const FVector& RelativeOffset, float AdditionalYaw = 0.0f) const;
+
     template <typename TActorClass>
     TActorClass* SpawnIfMissing(const FTransform& SpawnTransform);
 
 private:
     UPROPERTY(EditAnywhere, Category = "KemSUinVR")
-    FVector HubOffset = FVector(240.0f, 0.0f, 140.0f);
+    FVector HubOffset = FVector(180.0f, 0.0f, 120.0f);
 
     UPROPERTY(EditAnywhere, Category = "KemSUinVR")
-    FVector RoomCodeOffset = FVector(0.0f, -320.0f, 240.0f);
+    FVector RoomCodeOffset = FVector(220.0f, -120.0f, 175.0f);
 
     UPROPERTY(EditAnywhere, Category = "KemSUinVR")
-    FVector TeacherPanelOffset = FVector(40.0f, 0.0f, 110.0f);
+    FVector TeacherPanelOffset = FVector(210.0f, 130.0f, 110.0f);
 
     UPROPERTY(EditAnywhere, Category = "KemSUinVR")
-    FVector BrowserDeskOffset = FVector(70.0f, 120.0f, 105.0f);
+    FVector BrowserDeskOffset = FVector(210.0f, -140.0f, 105.0f);
 
     UPROPERTY(EditAnywhere, Category = "KemSUinVR")
-    FVector SharedScreenOffset = FVector(700.0f, 0.0f, 220.0f);
+    FVector SharedScreenOffset = FVector(460.0f, 0.0f, 190.0f);
+
+    bool bLocalLayoutInitialized = false;
+    float ProxyRefreshAccumulator = 0.0f;
+    TWeakObjectPtr<APawn> LastLayoutPawn;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<AKemPlayerControlProxy>> PlayerControlProxies;
 };

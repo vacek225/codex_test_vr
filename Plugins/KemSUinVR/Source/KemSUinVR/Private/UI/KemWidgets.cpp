@@ -34,17 +34,23 @@ void UKemActionButton::EnsureBinding()
 
 void UKemActionButton::HandleInternalClicked()
 {
+    UE_LOG(LogTemp, Log, TEXT("KemSUinVR: UI button clicked: %s"), *ActionId);
     OnKemActionClicked.Broadcast(ActionId);
+}
+
+TSharedRef<SWidget> UKemPanelWidgetBase::RebuildWidget()
+{
+    if (WidgetTree && !WidgetTree->RootWidget)
+    {
+        BuildUI();
+    }
+
+    return Super::RebuildWidget();
 }
 
 void UKemPanelWidgetBase::NativeConstruct()
 {
     Super::NativeConstruct();
-
-    if (!WidgetTree->RootWidget)
-    {
-        BuildUI();
-    }
 }
 
 void UKemPanelWidgetBase::NativeDestruct()
@@ -83,6 +89,7 @@ UKemActionButton* UKemPanelWidgetBase::CreateActionButton(const FString& Label, 
     UKemActionButton* Button = WidgetTree->ConstructWidget<UKemActionButton>();
     Button->EnsureBinding();
     Button->ActionId = ActionId;
+    Button->SetClickMethod(EButtonClickMethod::MouseDown);
     Button->SetBackgroundColor(FLinearColor(0.88f, 0.88f, 0.91f, 0.95f));
     Button->SetColorAndOpacity(FLinearColor::Black);
 
@@ -141,6 +148,11 @@ void UKemHubMenuWidget::BuildUI()
     if (UVerticalBoxSlot* VBoxSlot = RootBox->AddChildToVerticalBox(CreateTextBlock(TEXT("Create or join an auditorium"), 22, FLinearColor(0.8f, 0.82f, 0.9f, 1.0f))))
     {
         VBoxSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 18.0f));
+    }
+
+    if (UVerticalBoxSlot* VBoxSlot = RootBox->AddChildToVerticalBox(CreateTextBlock(TEXT("Desktop fallback: WASD move, mouse look, left click on the blue interaction ray, E/Q or Space/Ctrl for up/down."), 14, FLinearColor(0.75f, 0.78f, 0.88f, 1.0f))))
+    {
+        VBoxSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 12.0f));
     }
 
     StatusText = CreateTextBlock(TEXT("Ready."), 18, FLinearColor(0.72f, 0.86f, 1.0f, 1.0f));

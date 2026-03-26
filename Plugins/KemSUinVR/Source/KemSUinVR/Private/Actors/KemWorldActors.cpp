@@ -1,6 +1,8 @@
 #include "Actors/KemWorldActors.h"
 
 #include "Actors/KemClassroomStateActor.h"
+#include "Actors/KemDesktopCharacter.h"
+#include "Actors/KemPlayerControlProxy.h"
 #include "Components/WidgetComponent.h"
 #include "Core/KemRoomSubsystem.h"
 #include "Engine/World.h"
@@ -8,6 +10,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/Pawn.h"
+#include "IXRTrackingSystem.h"
 #include "UI/KemWidgets.h"
 
 AKemWidgetPanelActorBase::AKemWidgetPanelActorBase()
@@ -60,7 +63,18 @@ AKemHubActor::AKemHubActor()
     bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemHubMenuWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(1100.0f, 1200.0f));
-    SetActorScale3D(FVector(0.0035f));
+    SetActorScale3D(FVector(0.08f));
+}
+
+void AKemHubActor::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+    APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+    APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+    UKemRoomSubsystem* RoomSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UKemRoomSubsystem>() : nullptr;
+    const bool bDesktopMenuOwnsPresentation = PlayerPawn && PlayerPawn->IsA<AKemDesktopCharacter>() && RoomSubsystem && !RoomSubsystem->GetCurrentRoomInfo().bIsInRoom;
+    SetActorHiddenInGame(bDesktopMenuOwnsPresentation);
 }
 
 AKemRoomCodeDisplayActor::AKemRoomCodeDisplayActor()
@@ -68,7 +82,7 @@ AKemRoomCodeDisplayActor::AKemRoomCodeDisplayActor()
     bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemRoomCodeWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(700.0f, 280.0f));
-    SetActorScale3D(FVector(0.005f));
+    SetActorScale3D(FVector(0.08f));
 }
 
 void AKemRoomCodeDisplayActor::Tick(float DeltaSeconds)
@@ -83,9 +97,10 @@ void AKemRoomCodeDisplayActor::Tick(float DeltaSeconds)
 
 AKemTeacherControlPanelActor::AKemTeacherControlPanelActor()
 {
+    bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemTeacherControlWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(900.0f, 1200.0f));
-    SetActorScale3D(FVector(0.0035f));
+    SetActorScale3D(FVector(0.07f));
 }
 
 void AKemTeacherControlPanelActor::Tick(float DeltaSeconds)
@@ -100,9 +115,10 @@ void AKemTeacherControlPanelActor::Tick(float DeltaSeconds)
 
 AKemBrowserDeskActor::AKemBrowserDeskActor()
 {
+    bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemBrowserDeskWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(1200.0f, 1100.0f));
-    SetActorScale3D(FVector(0.0025f));
+    SetActorScale3D(FVector(0.06f));
 }
 
 void AKemBrowserDeskActor::Tick(float DeltaSeconds)
@@ -117,9 +133,10 @@ void AKemBrowserDeskActor::Tick(float DeltaSeconds)
 
 AKemSharedLectureScreenActor::AKemSharedLectureScreenActor()
 {
+    bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemLectureScreenWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(1600.0f, 1100.0f));
-    SetActorScale3D(FVector(0.004f));
+    SetActorScale3D(FVector(0.09f));
 }
 
 void AKemSharedLectureScreenActor::BeginPlay()
@@ -135,9 +152,10 @@ void AKemSharedLectureScreenActor::BeginPlay()
 AKemLocalLectureScreenActor::AKemLocalLectureScreenActor()
 {
     bReplicates = false;
+    bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemLectureScreenWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(1200.0f, 850.0f));
-    SetActorScale3D(FVector(0.003f));
+    SetActorScale3D(FVector(0.07f));
 }
 
 void AKemLocalLectureScreenActor::BeginPlay()
@@ -156,7 +174,7 @@ AKemParticipantModeratorActor::AKemParticipantModeratorActor()
     bFaceLocalPlayer = true;
     WidgetComponent->SetWidgetClass(UKemParticipantModeratorWidget::StaticClass());
     WidgetComponent->SetDrawSize(FVector2D(700.0f, 620.0f));
-    SetActorScale3D(FVector(0.0028f));
+    SetActorScale3D(FVector(0.06f));
 }
 
 void AKemParticipantModeratorActor::Tick(float DeltaSeconds)
@@ -280,24 +298,165 @@ void AKemHostModeratorManagerActor::Tick(float DeltaSeconds)
 
 AKemClassroomBootstrapActor::AKemClassroomBootstrapActor()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 }
 
 void AKemClassroomBootstrapActor::BeginPlay()
 {
     Super::BeginPlay();
 
-    const FTransform ActorTransform = GetActorTransform();
+    if (HasAuthority())
+    {
+        EnsurePlayerControlProxies();
+    }
+}
 
-    SpawnIfMissing<AKemHubActor>(FTransform(ActorTransform.GetRotation(), ActorTransform.TransformPosition(HubOffset), ActorTransform.GetScale3D()));
-    SpawnIfMissing<AKemRoomCodeDisplayActor>(FTransform(ActorTransform.GetRotation(), ActorTransform.TransformPosition(RoomCodeOffset), ActorTransform.GetScale3D()));
-    SpawnIfMissing<AKemTeacherControlPanelActor>(FTransform(ActorTransform.GetRotation(), ActorTransform.TransformPosition(TeacherPanelOffset), ActorTransform.GetScale3D()));
-    SpawnIfMissing<AKemBrowserDeskActor>(FTransform(ActorTransform.GetRotation(), ActorTransform.TransformPosition(BrowserDeskOffset), ActorTransform.GetScale3D()));
+void AKemClassroomBootstrapActor::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
 
-    FRotator ScreenRotation = ActorTransform.GetRotation().Rotator();
-    ScreenRotation.Yaw += 180.0f;
-    SpawnIfMissing<AKemSharedLectureScreenActor>(FTransform(ScreenRotation, ActorTransform.TransformPosition(SharedScreenOffset), ActorTransform.GetScale3D()));
-    SpawnIfMissing<AKemHostModeratorManagerActor>(ActorTransform);
+    if (HasAuthority())
+    {
+        ProxyRefreshAccumulator += DeltaSeconds;
+        if (ProxyRefreshAccumulator >= 0.5f)
+        {
+            ProxyRefreshAccumulator = 0.0f;
+            EnsurePlayerControlProxies();
+        }
+    }
+
+    EnsureLocalPlayerControlMode();
+    EnsureLocalLayoutInitialized();
+}
+
+void AKemClassroomBootstrapActor::EnsureLocalLayoutInitialized()
+{
+    APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+    APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+    if (!PlayerController || !PlayerPawn)
+    {
+        return;
+    }
+
+    const bool bShouldRefreshLayout = !bLocalLayoutInitialized || LastLayoutPawn.Get() != PlayerPawn;
+    if (!bShouldRefreshLayout)
+    {
+        return;
+    }
+
+    const FVector LayoutOrigin = PlayerPawn->GetActorLocation();
+    const FRotator LayoutRotation(0.0f, PlayerController->GetControlRotation().Yaw, 0.0f);
+
+    SpawnIfMissing<AKemHubActor>(BuildLayoutTransform(LayoutOrigin, LayoutRotation, HubOffset));
+    SpawnIfMissing<AKemRoomCodeDisplayActor>(BuildLayoutTransform(LayoutOrigin, LayoutRotation, RoomCodeOffset));
+    SpawnIfMissing<AKemTeacherControlPanelActor>(BuildLayoutTransform(LayoutOrigin, LayoutRotation, TeacherPanelOffset));
+    SpawnIfMissing<AKemBrowserDeskActor>(BuildLayoutTransform(LayoutOrigin, LayoutRotation, BrowserDeskOffset));
+    SpawnIfMissing<AKemSharedLectureScreenActor>(BuildLayoutTransform(LayoutOrigin, LayoutRotation, SharedScreenOffset, 180.0f));
+    SpawnIfMissing<AKemHostModeratorManagerActor>(GetActorTransform());
+
+    bLocalLayoutInitialized = true;
+    LastLayoutPawn = PlayerPawn;
+    UE_LOG(LogTemp, Log, TEXT("KemSUinVR: Local layout refreshed around pawn %s at %s."),
+        *PlayerPawn->GetName(),
+        *LayoutOrigin.ToCompactString());
+}
+
+void AKemClassroomBootstrapActor::EnsurePlayerControlProxies()
+{
+    if (!HasAuthority() || !GetWorld())
+    {
+        return;
+    }
+
+    for (auto It = PlayerControlProxies.CreateIterator(); It; ++It)
+    {
+        if (!IsValid(It->Get()))
+        {
+            It.RemoveCurrent();
+        }
+    }
+
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        APlayerController* PlayerController = It->Get();
+        if (!PlayerController)
+        {
+            continue;
+        }
+
+        const bool bHasProxy = PlayerControlProxies.ContainsByPredicate([PlayerController](const AKemPlayerControlProxy* Proxy)
+        {
+            return Proxy && Proxy->GetOwner() == PlayerController;
+        });
+
+        if (bHasProxy)
+        {
+            continue;
+        }
+
+        FActorSpawnParameters SpawnParameters;
+        SpawnParameters.Owner = PlayerController;
+        SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        if (AKemPlayerControlProxy* Proxy = GetWorld()->SpawnActor<AKemPlayerControlProxy>(SpawnParameters))
+        {
+            PlayerControlProxies.Add(Proxy);
+            Proxy->ClientEvaluateLocalControlMode();
+        }
+    }
+}
+
+void AKemClassroomBootstrapActor::EnsureLocalPlayerControlMode()
+{
+    APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+    APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+    if (!PlayerController || !PlayerPawn || PlayerPawn->IsA<AKemDesktopCharacter>() || !ShouldUseDesktopFallback())
+    {
+        return;
+    }
+
+    AKemPlayerControlProxy* LocalProxy = nullptr;
+    for (const TObjectPtr<AKemPlayerControlProxy>& Proxy : PlayerControlProxies)
+    {
+        if (Proxy && Proxy->GetOwner() == PlayerController)
+        {
+            LocalProxy = Proxy;
+            break;
+        }
+    }
+
+    if (LocalProxy)
+    {
+        if (HasAuthority())
+        {
+            LocalProxy->ActivateDesktopModeForOwner();
+        }
+        else
+        {
+            LocalProxy->ServerRequestDesktopMode();
+        }
+    }
+}
+
+bool AKemClassroomBootstrapActor::ShouldUseDesktopFallback() const
+{
+    if (!GEngine || !GEngine->XRSystem.IsValid())
+    {
+        return true;
+    }
+
+    const bool bStereoRenderingActive = GEngine->IsStereoscopic3D();
+    const bool bTrackedHMDPresent = GEngine->XRSystem->CountTrackedDevices(EXRTrackedDeviceType::HeadMountedDisplay) > 0;
+    return !(bStereoRenderingActive && bTrackedHMDPresent);
+}
+
+FTransform AKemClassroomBootstrapActor::BuildLayoutTransform(const FVector& LayoutOrigin, const FRotator& LayoutRotation, const FVector& RelativeOffset, float AdditionalYaw) const
+{
+    const FTransform LayoutTransform(LayoutRotation, LayoutOrigin, FVector::OneVector);
+    const FVector WorldLocation = LayoutTransform.TransformPosition(RelativeOffset);
+    FRotator WorldRotation = LayoutRotation;
+    WorldRotation.Yaw += AdditionalYaw;
+    return FTransform(WorldRotation, WorldLocation, FVector::OneVector);
 }
 
 template <typename TActorClass>
@@ -305,6 +464,7 @@ TActorClass* AKemClassroomBootstrapActor::SpawnIfMissing(const FTransform& Spawn
 {
     for (TActorIterator<TActorClass> It(GetWorld()); It; ++It)
     {
+        It->SetActorTransform(SpawnTransform);
         return *It;
     }
 
